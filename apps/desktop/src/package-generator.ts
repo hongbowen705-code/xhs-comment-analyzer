@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { NoteTarget, UnifiedComment } from "@xhs/shared";
+import { CLAIM_TYPES } from "./claim-types.js";
 
 export interface GeneratedPackageSummary {
   batchCount: number;
@@ -344,6 +345,8 @@ function createGptUploadTask(
         "形成主要观点簇、争议点、高价值评论和分析局限。",
         "每个观点和争议必须保存可追溯评论 ID。",
         "区分共识、争议、个人经历和待外部核验声明。",
+        `每条待外部核验声明必须选择固定 claim_type：${CLAIM_TYPES.join(", ")}。`,
+        "verification_status 必须固定为 unverified；不要联网，也不要判断声明真假。",
         "不得依据 IP 属地推断身份、职业、民族、籍贯或真实居住地。"
       ],
       deterministic_statistics: "不要计算数量比例或加权比例；桌面端将本地计算。"
@@ -428,6 +431,8 @@ function createGptUploadTask(
         claims_to_verify: [
           {
             claim: "待外部核验声明",
+            claim_type: "product_or_service_effect",
+            verification_status: "unverified",
             evidence_comment_ids: ["C_000001"]
           }
         ],

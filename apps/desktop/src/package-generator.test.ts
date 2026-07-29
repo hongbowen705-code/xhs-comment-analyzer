@@ -81,6 +81,13 @@ describe("analysis package generator", () => {
     expect(gptUpload.output_schema.analysis.main_viewpoints[0].member_comment_ids).toEqual([
       "C_000001"
     ]);
+    expect(gptUpload.output_schema.analysis.claims_to_verify[0]).toMatchObject({
+      claim_type: "product_or_service_effect",
+      verification_status: "unverified"
+    });
+    expect(gptUpload.instructions.analysis.join("\n")).toContain(
+      "other_verifiable_claim"
+    );
   });
 });
 

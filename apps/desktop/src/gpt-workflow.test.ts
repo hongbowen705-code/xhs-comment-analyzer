@@ -103,6 +103,8 @@ function analysis() {
     }],
     claims_to_verify: [{
       claim: "某项效果数据需要外部核验",
+      claim_type: "product_or_service_effect",
+      verification_status: "unverified",
       evidence_comment_ids: ["C_000002"]
     }],
     limitations: ["仅分析本次采样评论"]
@@ -159,6 +161,8 @@ describe("single-file GPT workflow", () => {
     expect(report).toContain("评论主要围绕方案是否有效展开");
     expect(report).toContain("50.0%");
     expect(report).toContain("公开IP属地");
+    expect(report).toContain("产品或服务效果");
+    expect(report).toContain("软件未联网判断真假");
     expect(await readFile(path.join(taskDir, "ai_results", "analysis_result.json"), "utf8"))
       .toContain("效果争议");
     const shareReport = await readFile(path.join(taskDir, "report_share.html"), "utf8");
@@ -175,6 +179,12 @@ describe("single-file GPT workflow", () => {
       reply_comment_count: 0,
       stance_counts: { 支持: 1 },
       controversy_ids: ["X_001"]
+    });
+    const reportData = JSON.parse(
+      await readFile(path.join(taskDir, "report_private", "report-data.json"), "utf8")
+    );
+    expect(reportData.claim_type_counts).toEqual({
+      product_or_service_effect: 1
     });
     const semanticUpload = await generateSemanticAnalysisUpload(taskDir);
     expect(await readFile(semanticUpload, "utf8")).toContain(
@@ -220,6 +230,32 @@ describe("single-file GPT workflow", () => {
     expect(
       await readFile(path.join(taskDir, "ai_results", "classification-merged.jsonl"), "utf8")
     ).toContain("部分支持或有条件支持");
+  });
+
+  it("rejects unsupported claim types and truth verdicts", () => {
+    const invalid = analysis();
+    invalid.claims_to_verify[0]!.claim_type = "medical_fact";
+    invalid.claims_to_verify[0]!.verification_status = "verified";
+    const result = validateSemanticAnalysis(invalid, ["C_000001", "C_000002"]);
+    expect(result.analysis).toBeNull();
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("claim_type 不在固定枚举中"),
+        expect.stringContaining("verification_status 只能是 unverified")
+      ])
+    );
+  });
+
+  it("keeps V0.6 semantic results compatible and marks old claims unverified", () => {
+    const legacy = analysis() as Record<string, any>;
+    delete legacy.claims_to_verify[0].claim_type;
+    delete legacy.claims_to_verify[0].verification_status;
+    const result = validateSemanticAnalysis(legacy, ["C_000001", "C_000002"]);
+    expect(result.issues).toEqual([]);
+    expect(result.analysis?.claims_to_verify[0]).toMatchObject({
+      claim_type: "other_verifiable_claim",
+      verification_status: "unverified"
+    });
   });
 
   it("generates and merges a partial repair request instead of redoing all comments", async () => {

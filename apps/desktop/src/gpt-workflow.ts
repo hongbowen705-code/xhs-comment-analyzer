@@ -9,6 +9,11 @@ import {
   generatePrivateReport,
   type SemanticAnalysisResult
 } from "./report-generator.js";
+import {
+  CLAIM_TYPES,
+  DEFAULT_CLAIM_TYPE,
+  isClaimType
+} from "./claim-types.js";
 
 export interface GptImportSummary extends ClassificationImportSummary {
   analysis_status: "accepted" | "rejected";
@@ -160,35 +165,77 @@ export function validateSemanticAnalysis(
       })
     : (issues.push("high_value_comments 必须是数组"), []);
 
-  const statements = (
-    field: "consensus_statements" | "claims_to_verify",
-    textField: "statement" | "claim"
-  ) =>
-    Array.isArray(value[field])
-      ? value[field].slice(0, 100).flatMap((raw, index) => {
-          if (!isObject(raw)) {
-            issues.push(`${field}[${index}] 格式错误`);
-            return [];
-          }
-          const statementText = text(raw[textField]);
-          const evidence = validatedIds(
-            raw.evidence_comment_ids,
-            knownIds,
-            `${field}[${index}].evidence_comment_ids`,
-            issues
+  const consensusStatements = Array.isArray(value.consensus_statements)
+    ? value.consensus_statements.slice(0, 100).flatMap((raw, index) => {
+        if (!isObject(raw)) {
+          issues.push(`consensus_statements[${index}] 格式错误`);
+          return [];
+        }
+        const statement = text(raw.statement);
+        const evidence = validatedIds(
+          raw.evidence_comment_ids,
+          knownIds,
+          `consensus_statements[${index}].evidence_comment_ids`,
+          issues
+        );
+        if (!statement || !evidence.length) {
+          issues.push(`consensus_statements[${index}] 内容或证据缺失`);
+          return [];
+        }
+        return [{ statement, evidence_comment_ids: evidence }];
+      })
+    : (issues.push("consensus_statements 必须是数组"), []);
+
+  const claimsToVerify = Array.isArray(value.claims_to_verify)
+    ? value.claims_to_verify.slice(0, 100).flatMap((raw, index) => {
+        if (!isObject(raw)) {
+          issues.push(`claims_to_verify[${index}] 格式错误`);
+          return [];
+        }
+        const claim = text(raw.claim);
+        const claimType =
+          raw.claim_type === undefined
+            ? DEFAULT_CLAIM_TYPE
+            : isClaimType(raw.claim_type)
+              ? raw.claim_type
+              : null;
+        const verificationStatus: "unverified" | null =
+          raw.verification_status === undefined
+            ? "unverified"
+            : raw.verification_status === "unverified"
+              ? "unverified"
+              : null;
+        if (!claimType) {
+          issues.push(
+            `claims_to_verify[${index}].claim_type 不在固定枚举中：${CLAIM_TYPES.join(", ")}`
           );
-          if (!statementText || !evidence.length) {
-            issues.push(`${field}[${index}] 内容或证据缺失`);
-            return [];
-          }
-          return [{ [textField]: statementText, evidence_comment_ids: evidence }];
-        })
-      : (issues.push(`${field} 必须是数组`), []);
+        }
+        if (!verificationStatus) {
+          issues.push(
+            `claims_to_verify[${index}].verification_status 只能是 unverified`
+          );
+        }
+        const evidence = validatedIds(
+          raw.evidence_comment_ids,
+          knownIds,
+          `claims_to_verify[${index}].evidence_comment_ids`,
+          issues
+        );
+        if (!claim || !claimType || !verificationStatus || !evidence.length) {
+          issues.push(`claims_to_verify[${index}] 内容、类型、状态或证据缺失`);
+          return [];
+        }
+        return [{
+          claim,
+          claim_type: claimType,
+          verification_status: verificationStatus,
+          evidence_comment_ids: evidence
+        }];
+      })
+    : (issues.push("claims_to_verify 必须是数组"), []);
 
   const limitations = stringArray(value.limitations, 100);
   if (!limitations) issues.push("limitations 必须是字符串数组");
-  const consensusStatements = statements("consensus_statements", "statement");
-  const claimsToVerify = statements("claims_to_verify", "claim");
   if (issues.length || !executiveSummary || !sentimentSummary) {
     return { analysis: null, issues };
   }
@@ -458,6 +505,8 @@ export async function generateSemanticAnalysisUpload(
           "只返回严格 JSON 对象，不使用 Markdown 代码块。",
           "所有成员、代表评论和证据 ID 必须来自 comments。",
           "高频说法不等于事实，个人经历与待核验声明必须区分。",
+          `每条待核验声明必须从固定 claim_type 中选择：${CLAIM_TYPES.join(", ")}。`,
+          "verification_status 必须固定为 unverified；本步骤不联网、不判断声明真假。",
           "不要计算百分比，不要生成 HTML。"
         ],
         note: noteEnvelope.note,
@@ -504,6 +553,8 @@ export async function generateSemanticAnalysisUpload(
             }],
             claims_to_verify: [{
               claim: "待外部核验声明",
+              claim_type: "product_or_service_effect",
+              verification_status: "unverified",
               evidence_comment_ids: ["C_000001"]
             }],
             limitations: ["采样与语境限制"]

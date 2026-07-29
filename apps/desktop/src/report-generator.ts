@@ -4,6 +4,13 @@ import path from "node:path";
 import type { UnifiedComment } from "@xhs/shared";
 import type { ClassificationRecord } from "./classification-importer.js";
 import { upsertAnalysisMetadata, upsertTaskMetadata } from "./metadata-db.js";
+import {
+  CLAIM_TYPE_LABELS,
+  DEFAULT_CLAIM_TYPE,
+  isClaimType,
+  type ClaimType,
+  type ClaimVerificationStatus
+} from "./claim-types.js";
 
 export interface ViewpointResult {
   viewpoint_id: string;
@@ -24,7 +31,13 @@ export interface ControversyResult {
 
 export interface EvidenceStatement {
   statement?: string;
-  claim?: string;
+  evidence_comment_ids: string[];
+}
+
+export interface VerificationClaim {
+  claim: string;
+  claim_type: ClaimType;
+  verification_status: ClaimVerificationStatus;
   evidence_comment_ids: string[];
 }
 
@@ -35,7 +48,7 @@ export interface SemanticAnalysisResult {
   controversies: ControversyResult[];
   high_value_comments: Array<{ comment_id: string; reason: string }>;
   consensus_statements: EvidenceStatement[];
-  claims_to_verify: EvidenceStatement[];
+  claims_to_verify: VerificationClaim[];
   limitations: string[];
 }
 
@@ -189,6 +202,28 @@ export async function generatePrivateReport(input: {
     (stats.secondary_tag_distribution as Array<Record<string, unknown>> | undefined) ?? [];
   const crossRows =
     (stats.category_stance_cross_table as Array<Record<string, unknown>> | undefined) ?? [];
+  const normalizedClaims = input.analysis.claims_to_verify.map((claim) => ({
+    ...claim,
+    claim_type: isClaimType(claim.claim_type)
+      ? claim.claim_type
+      : DEFAULT_CLAIM_TYPE,
+    verification_status: "unverified" as const
+  }));
+  const claimTypeCounts = normalizedClaims.reduce<Record<string, number>>(
+    (counts, claim) => {
+      counts[claim.claim_type] = (counts[claim.claim_type] ?? 0) + 1;
+      return counts;
+    },
+    {}
+  );
+  const claimTypeSummary = Object.entries(claimTypeCounts)
+    .map(
+      ([claimType, count]) =>
+        `<span class="tag">${escapeHtml(
+          CLAIM_TYPE_LABELS[claimType as ClaimType] ?? claimType
+        )} ${count}</span>`
+    )
+    .join(" ");
 
   const html = `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -304,10 +339,12 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
           classificationMap
         )}</div>`
     )
-    .join("")}</div><div class="card"><h2>待外部核验声明</h2>${input.analysis.claims_to_verify
+    .join("")}</div><div class="card"><h2>待外部核验声明</h2><p class="muted">仅识别声明类型，全部状态均为“未核验”；软件未联网判断真假。</p><p>${claimTypeSummary || '<span class="muted">无待核验声明</span>'}</p>${normalizedClaims
     .map(
       (item) =>
-        `<div class="viewpoint"><p>${escapeHtml(item.claim)}</p>${evidenceHtml(
+        `<div class="viewpoint"><span class="tag">${escapeHtml(
+          CLAIM_TYPE_LABELS[item.claim_type]
+        )}</span> <span class="tag">未核验</span><p>${escapeHtml(item.claim)}</p>${evidenceHtml(
           item.evidence_comment_ids,
           commentMap,
           classificationMap
@@ -351,8 +388,12 @@ if(!q||!s||!c||!count)return;const apply=()=>{const term=(q.value||'').trim().to
         schema_version: "1.0",
         task_id: input.taskId,
         versions,
-        analysis: input.analysis,
+        analysis: {
+          ...input.analysis,
+          claims_to_verify: normalizedClaims
+        },
         stats,
+        claim_type_counts: claimTypeCounts,
         viewpoints: enrichedViewpoints
       },
       null,
@@ -398,7 +439,7 @@ if(!q||!s||!c||!count)return;const apply=()=>{const term=(q.value||'').trim().to
     ...input.analysis.controversies.flatMap((item) => item.evidence_comment_ids),
     ...input.analysis.high_value_comments.map((item) => item.comment_id),
     ...input.analysis.consensus_statements.flatMap((item) => item.evidence_comment_ids),
-    ...input.analysis.claims_to_verify.flatMap((item) => item.evidence_comment_ids)
+    ...normalizedClaims.flatMap((item) => item.evidence_comment_ids)
   ]);
   const shareComments = comments.filter((comment) => evidenceIds.has(comment.local_comment_id));
   const shareSection = `<section class="card" id="all-comments"><h2>代表性证据评论</h2><p class="muted" id="filter-count">显示 ${shareComments.length} 条</p><div class="comment-list">${commentRowsHtml(
