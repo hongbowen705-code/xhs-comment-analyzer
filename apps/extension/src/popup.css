@@ -1,0 +1,13 @@
+:root { font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif; color: #292529; }
+body { width: 310px; margin: 0; background: #f6f3f1; }
+main { padding: 22px; }
+.eyebrow { color: #9c4250; font-size: 11px; font-weight: 700; letter-spacing: .1em; }
+h1 { margin: 7px 0 10px; font-size: 21px; }
+p { min-height: 40px; margin: 0; color: #706a67; font-size: 13px; line-height: 1.5; }
+.progress { height: 4px; margin: 14px 0; border-radius: 9px; background: #e4dedb; overflow: hidden; }
+.progress i { display: block; width: 0; height: 100%; background: #a43f50; transition: width .2s; }
+button { width: 100%; padding: 10px; border: 0; border-radius: 8px; color: #fff; background: #a43f50; font: inherit; font-weight: 700; cursor: pointer; }
+button:disabled { background: #bdb6b3; cursor: not-allowed; }
+label { display: block; margin-bottom: 6px; color: #706a67; font-size: 12px; }
+select { width: 100%; margin-bottom: 10px; padding: 9px; border: 1px solid #d5ceca; border-radius: 8px; background: #fff; font: inherit; }
+small { display: block; margin-top: 12px; color: #96908d; font-size: 11px; line-height: 1.5; }

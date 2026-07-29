@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>小红书评论分析</title>
+  </head>
+  <body>
+    <main>
+      <span class="eyebrow">只读开发版 · V0.6</span>
+      <h1>分析当前目标</h1>
+      <p id="status">正在检查当前标签页…</p>
+      <div class="progress"><i id="bar"></i></div>
+      <label for="capture-limit">采集规模</label>
+      <select id="capture-limit">
+        <option value="50">验证模式 · 50 条</option>
+        <option value="100" selected>快速模式 · 100 条</option>
+        <option value="500">标准模式 · 500 条</option>
+        <option value="1000">深度模式 · 1,000 条</option>
+        <option value="2000">深度模式 · 2,000 条</option>
+        <option value="3000">深度模式 · 3,000 条</option>
+      </select>
+      <button id="analyze" disabled>分析当前目标</button>
+      <small>请先启动桌面端。深度模式耗时更长，遇到验证码或限制会立即暂停。</small>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

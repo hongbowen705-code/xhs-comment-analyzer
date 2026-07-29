@@ -1,0 +1,30 @@
+{
+  "name": "xhs-comment-analyzer-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @xhs/shared && npm run build -w @xhs/native-host && npm run build -w @xhs/desktop && npm run build -w @xhs/extension",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run build -w @xhs/shared && vitest run --configLoader runner",
+    "start:desktop": "npm run build -w @xhs/shared && npm run build -w @xhs/desktop && npm run start -w @xhs/desktop",
+    "build:extension": "npm run build -w @xhs/shared && npm run build -w @xhs/extension",
+    "build:native-host": "npm run build -w @xhs/shared && npm run build -w @xhs/native-host",
+    "register:native-host": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/register-native-host.ps1",
+    "diagnose:native-host": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/diagnose-native-host.ps1",
+    "unregister:native-host": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/unregister-native-host.ps1",
+    "setup:development": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-development.ps1",
+    "package:win": "npm run build && npm run package:win -w @xhs/desktop"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  },
+  "engines": {
+    "node": ">=25.5.0"
+  }
+}

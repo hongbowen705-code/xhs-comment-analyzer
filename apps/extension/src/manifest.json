@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "小红书评论分析工具（技术原型）",
+  "version": "0.6.0",
+  "description": "用户主动触发的可见、低频、只读单篇笔记评论采集原型。",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArN+10+Z6IfwYJ+X7n1JOi9fTD0eG3sdU9IkSCGE9x8iEhP6OGNp4A2+Te0prSR95qNfZEv92uMB4ryKmlhv7xIlYJJXyVUJPv8jjD1GsAcTi5fhKkJJhEKFzuyT5rm12AdaQCmI1u6YsZVtdo4/O8xNs/3aYs7hWBwmHi3ARMd8rT8I0M2mBFwxOyYKPuictwn0mGrT8sFOeAKownpBpdXdTkcQDgEmULtWFxwnF1MPXZV/Z3sT9XNZ/hftCmQIP6CO9No8JhkzLYhtC28BwoB+xCY1IO72Pss86qyA6MqJFGoMLXPiKJR9bjj2Ko5+3WSidXJcf6IwjpXD8aZF8YQIDAQAB",
+  "permissions": [
+    "activeTab",
+    "nativeMessaging",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://www.xiaohongshu.com/*",
+    "https://xiaohongshu.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "分析当前小红书笔记"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.xiaohongshu.com/*",
+        "https://xiaohongshu.com/*"
+      ],
+      "js": ["observer.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://www.xiaohongshu.com/*",
+        "https://xiaohongshu.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

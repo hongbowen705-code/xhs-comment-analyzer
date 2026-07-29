@@ -1,0 +1,19 @@
+{
+  "name": "@xhs/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@xhs/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.326",
+    "esbuild": "^0.25.0"
+    ,
+    "linkedom": "^0.18.12"
+  }
+}
