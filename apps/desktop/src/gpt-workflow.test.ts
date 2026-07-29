@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -10,7 +10,11 @@ import {
   importSemanticAnalysisResult,
   validateSemanticAnalysis
 } from "./gpt-workflow.js";
-import { applyManualRevision, getReviewState } from "./review-service.js";
+import {
+  applyManualRevision,
+  getReviewState,
+  rebuildReviewQueue
+} from "./review-service.js";
 
 function comment(
   id: string,
@@ -256,6 +260,72 @@ describe("single-file GPT workflow", () => {
       claim_type: "other_verifiable_claim",
       verification_status: "unverified"
     });
+  });
+
+  it("rebuilds an existing queue while preserving completed reviews and a backup", async () => {
+    const taskDir = await mkdtemp(path.join(tmpdir(), "xhs-review-policy-"));
+    const resultDir = path.join(taskDir, "ai_results");
+    await mkdir(resultDir, { recursive: true });
+    const comments = [
+      comment("C_000001", "已复核"),
+      comment("C_000002", "仅由AI主动标记")
+    ];
+    const records = [
+      classification("C_000001", "支持"),
+      classification("C_000002", "支持")
+    ];
+    await writeFile(
+      path.join(taskDir, "comments.jsonl"),
+      `${comments.map((item) => JSON.stringify(item)).join("\n")}\n`,
+      "utf8"
+    );
+    await writeFile(
+      path.join(resultDir, "classification-merged.jsonl"),
+      `${records.map((item) => JSON.stringify(item)).join("\n")}\n`,
+      "utf8"
+    );
+    await writeFile(
+      path.join(resultDir, "review-queue.json"),
+      JSON.stringify({
+        schema_version: "1.0",
+        generated_at: "2026-07-29T00:00:00.000Z",
+        status: "pending_manual_review",
+        count: 1,
+        items: [
+          {
+            comment_id: "C_000001",
+            priority_score: 1,
+            review_reasons: ["category_low_confidence"],
+            interaction_score: 1,
+            like_count: 10,
+            reply_count: 0,
+            comment_level: 1,
+            original_ai_result: records[0],
+            review_status: "reviewed",
+            revision_id: "REV_existing",
+            reviewed_at: "2026-07-29T01:00:00.000Z"
+          },
+          {
+            comment_id: "C_000002",
+            priority_score: 1,
+            review_reasons: ["ai_uncertain"],
+            interaction_score: 1,
+            like_count: 2,
+            reply_count: 0,
+            comment_level: 1,
+            original_ai_result: records[1],
+            review_status: "pending"
+          }
+        ]
+      }),
+      "utf8"
+    );
+    const rebuilt = await rebuildReviewQueue(taskDir);
+    expect(rebuilt.previous_pending_count).toBe(1);
+    expect(rebuilt.new_pending_count).toBe(0);
+    expect(rebuilt.state.reviewed_count).toBe(1);
+    expect(rebuilt.state.total_count).toBe(1);
+    expect(await readFile(rebuilt.backup_path, "utf8")).toContain("C_000002");
   });
 
   it("generates and merges a partial repair request instead of redoing all comments", async () => {

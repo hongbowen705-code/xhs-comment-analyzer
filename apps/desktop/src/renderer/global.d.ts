@@ -2,7 +2,11 @@ import type { DesktopState } from "../preload";
 import type { ClassificationImportSummary } from "../classification-importer";
 import type { GptImportSummary } from "../gpt-workflow";
 import type { SemanticImportSummary } from "../gpt-workflow";
-import type { ManualRevisionInput, ReviewState } from "../review-service";
+import type {
+  ManualRevisionInput,
+  ReviewQueueRebuildResult,
+  ReviewState
+} from "../review-service";
 import type { TaskListItem, TaskView } from "../task-store";
 import type { StorageStatus } from "../storage-service";
 import type { CleanupPlan, CleanupResult } from "../retention-service";
@@ -36,6 +40,7 @@ declare global {
       regenerateReport(): Promise<boolean>;
       openShareReport(): Promise<boolean>;
       getReviewState(commentId?: string): Promise<ReviewState | null>;
+      rebuildReviewQueue(): Promise<ReviewQueueRebuildResult | null>;
       saveManualReview(input: ManualRevisionInput): Promise<ReviewState>;
       onState(listener: (state: DesktopState) => void): () => void;
     };

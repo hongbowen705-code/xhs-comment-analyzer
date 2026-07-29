@@ -1,10 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
-import { appendFile, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { UnifiedComment } from "@xhs/shared";
 import {
   PRIMARY_CATEGORIES,
+  REVIEW_QUEUE_POLICY,
   STANCES,
+  buildReviewQueue,
   buildConsistencyReview,
   calculateLocalClassificationStats,
   normalizeSecondaryTags,
@@ -108,6 +110,14 @@ type StoredQueueItem = Omit<ReviewQueueItem, "review_status"> & {
   reviewed_at?: string;
 };
 
+export interface ReviewQueueRebuildResult {
+  previous_pending_count: number;
+  new_pending_count: number;
+  removed_pending_count: number;
+  backup_path: string;
+  state: ReviewState;
+}
+
 async function readJsonl<T>(filePath: string): Promise<T[]> {
   return (await readFile(filePath, "utf8"))
     .split(/\r?\n/)
@@ -125,6 +135,68 @@ async function readQueue(taskDir: string): Promise<{
   return JSON.parse(
     await readFile(path.join(taskDir, "ai_results", "review-queue.json"), "utf8")
   );
+}
+
+export async function rebuildReviewQueue(
+  taskDir: string
+): Promise<ReviewQueueRebuildResult> {
+  const resultDir = path.join(taskDir, "ai_results");
+  const queuePath = path.join(resultDir, "review-queue.json");
+  const [queueText, comments, classifications] = await Promise.all([
+    readFile(queuePath, "utf8"),
+    readJsonl<UnifiedComment>(path.join(taskDir, "comments.jsonl")),
+    readJsonl<ClassificationRecord>(
+      path.join(resultDir, "classification-merged.jsonl")
+    )
+  ]);
+  const oldQueue = JSON.parse(queueText) as {
+    items: StoredQueueItem[];
+  };
+  const previousPending = oldQueue.items.filter(
+    (item) => item.review_status !== "reviewed"
+  ).length;
+  const historyDir = path.join(resultDir, "review-queue-history");
+  await mkdir(historyDir, { recursive: true });
+  const backupPath = path.join(
+    historyDir,
+    `review-queue-${new Date().toISOString().replace(/[:.]/g, "-")}.json`
+  );
+  await writeFile(backupPath, queueText, "utf8");
+
+  const reviewedItems = oldQueue.items.filter(
+    (item) => item.review_status === "reviewed"
+  );
+  const reviewedIds = new Set(reviewedItems.map((item) => item.comment_id));
+  const pendingItems = buildReviewQueue(classifications, comments).filter(
+    (item) => !reviewedIds.has(item.comment_id)
+  );
+  const items: StoredQueueItem[] = [...reviewedItems, ...pendingItems];
+  const generatedAt = new Date().toISOString();
+  await writeFile(
+    queuePath,
+    JSON.stringify(
+      {
+        schema_version: "2.0",
+        generated_at: generatedAt,
+        status:
+          pendingItems.length === 0 ? "completed" : "pending_manual_review",
+        count: pendingItems.length,
+        policy: REVIEW_QUEUE_POLICY,
+        previous_pending_count: previousPending,
+        items
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+  return {
+    previous_pending_count: previousPending,
+    new_pending_count: pendingItems.length,
+    removed_pending_count: Math.max(0, previousPending - pendingItems.length),
+    backup_path: backupPath,
+    state: await getReviewState(taskDir)
+  };
 }
 
 export async function getReviewState(

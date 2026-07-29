@@ -5,6 +5,7 @@ import type { GptImportSummary } from "./gpt-workflow.js";
 import type { SemanticImportSummary } from "./gpt-workflow.js";
 import type {
   ManualRevisionInput,
+  ReviewQueueRebuildResult,
   ReviewState
 } from "./review-service.js";
 import type { StorageStatus } from "./storage-service.js";
@@ -53,6 +54,8 @@ contextBridge.exposeInMainWorld("xhsDesktop", {
   openShareReport: (): Promise<boolean> => ipcRenderer.invoke("open-share-report"),
   getReviewState: (commentId?: string): Promise<ReviewState | null> =>
     ipcRenderer.invoke("get-review-state", commentId),
+  rebuildReviewQueue: (): Promise<ReviewQueueRebuildResult | null> =>
+    ipcRenderer.invoke("rebuild-review-queue"),
   saveManualReview: (input: ManualRevisionInput): Promise<ReviewState> =>
     ipcRenderer.invoke("save-manual-review", input),
   onState: (listener: (state: DesktopState) => void) => {

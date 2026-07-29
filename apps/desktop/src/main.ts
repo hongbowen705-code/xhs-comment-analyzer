@@ -38,8 +38,10 @@ import {
 import {
   applyManualRevision,
   getReviewState,
+  rebuildReviewQueue,
   regenerateReport,
   type ManualRevisionInput,
+  type ReviewQueueRebuildResult,
   type ReviewState
 } from "./review-service.js";
 import { getStorageStatus, type StorageStatus } from "./storage-service.js";
@@ -482,6 +484,34 @@ ipcMain.handle("get-review-state", async (_event, commentId?: string): Promise<R
   }
   return getReviewState(taskDir, commentId);
 });
+
+ipcMain.handle(
+  "rebuild-review-queue",
+  async (): Promise<ReviewQueueRebuildResult | null> => {
+    const taskDir = store.getView()?.taskDir;
+    if (
+      !taskDir ||
+      !existsSync(path.join(taskDir, "ai_results", "review-queue.json"))
+    ) {
+      return null;
+    }
+    const current = await getReviewState(taskDir);
+    const confirmation = await dialog.showMessageBox({
+      type: "question",
+      buttons: ["取消", "应用精简审核规则"],
+      defaultId: 0,
+      cancelId: 0,
+      title: "精简人工复核队列",
+      message: `当前还有 ${current.pending_count} 条待复核评论。`,
+      detail:
+        "将按更严格的本地风险阈值重新筛选。已完成的人工复核会保留，原队列会先备份，不会删除评论、AI结果、人工修改记录或报告。"
+    });
+    if (confirmation.response !== 1) return null;
+    const result = await rebuildReviewQueue(taskDir);
+    publishState();
+    return result;
+  }
+);
 
 ipcMain.handle(
   "save-manual-review",

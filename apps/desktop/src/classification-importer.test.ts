@@ -194,7 +194,7 @@ describe("classification importer", () => {
     const records = [
       record("C_000001", {
         category_confidence: 0.6,
-        stance_confidence: 0.7,
+        stance_confidence: 0.6,
         context_quality: "insufficient",
         needs_review: false
       })
@@ -209,5 +209,31 @@ describe("classification importer", () => {
       ])
     );
     expect(queue[0]?.original_ai_result).toBeDefined();
+  });
+
+  it("does not queue comments only because GPT requested review or sarcasm is possible", () => {
+    const records = [
+      record("C_000001", {
+        needs_review: true,
+        review_reasons: ["ai_uncertain"],
+        sarcasm: "possible"
+      })
+    ] as never[];
+    expect(buildReviewQueue(records, [comment("C_000001", 1, 1)])).toEqual([]);
+  });
+
+  it("caps large review queues to five percent and no more than eighty items", () => {
+    const ids = Array.from(
+      { length: 500 },
+      (_, index) => `C_${String(index + 1).padStart(6, "0")}`
+    );
+    const records = ids.map((id) =>
+      record(id, {
+        category_confidence: 0.1,
+        stance_confidence: 0.1
+      })
+    ) as never[];
+    const comments = ids.map((id, index) => comment(id, 1, index));
+    expect(buildReviewQueue(records, comments)).toHaveLength(25);
   });
 });

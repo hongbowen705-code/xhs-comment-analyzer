@@ -46,6 +46,9 @@ function App() {
   const [reviewReason, setReviewReason] = useState("");
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewPolicyMessage, setReviewPolicyMessage] = useState<string | null>(
+    null
+  );
   const [tasks, setTasks] = useState<TaskListItem[]>([]);
   const [storage, setStorage] = useState<StorageStatus | null>(null);
   const [cleanupPlan, setCleanupPlan] = useState<CleanupPlan | null>(null);
@@ -455,6 +458,36 @@ function App() {
             </div>
             <span className="pill">{review.pending_count ? "复核中" : "全部完成"}</span>
           </div>
+          {review.pending_count > 0 && (
+            <button
+              disabled={reviewSaving}
+              onClick={() => {
+                setReviewSaving(true);
+                setReviewError(null);
+                setReviewPolicyMessage(null);
+                void window.xhsDesktop
+                  .rebuildReviewQueue()
+                  .then((result) => {
+                    if (!result) return;
+                    setReview(result.state);
+                    setReviewPolicyMessage(
+                      `已从 ${result.previous_pending_count} 条精简为 ${result.new_pending_count} 条，移出 ${result.removed_pending_count} 条；原队列已备份。`
+                    );
+                  })
+                  .catch((error) =>
+                    setReviewError(
+                      error instanceof Error ? error.message : String(error)
+                    )
+                  )
+                  .finally(() => setReviewSaving(false));
+              }}
+            >
+              应用精简审核规则
+            </button>
+          )}
+          {reviewPolicyMessage && (
+            <p className="muted">{reviewPolicyMessage}</p>
+          )}
           {review.current ? (
             <>
               <div className="review-nav">

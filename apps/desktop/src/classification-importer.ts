@@ -110,6 +110,19 @@ export interface ReviewQueueItem {
   review_status: "pending";
 }
 
+export const REVIEW_QUEUE_POLICY = {
+  schema_version: "2.0",
+  category_confidence_below: 0.62,
+  stance_confidence_below: 0.68,
+  context_combined_confidence_below: 0.7,
+  high_interaction_quantile: 0.9,
+  high_interaction_category_below: 0.72,
+  high_interaction_stance_below: 0.75,
+  max_queue_ratio: 0.05,
+  min_queue_items: 10,
+  max_queue_items: 80
+} as const;
+
 export interface ConsistencyReviewItem {
   cluster_key: string;
   comment_ids: string[];
@@ -607,7 +620,13 @@ export function buildReviewQueue(
     )
     .sort((left, right) => left - right);
   const highInteractionThreshold =
-    interactions.length === 0 ? Number.POSITIVE_INFINITY : interactions[Math.floor(interactions.length * 0.8)] ?? 0;
+    interactions.length === 0
+      ? Number.POSITIVE_INFINITY
+      : interactions[
+          Math.floor(
+            interactions.length * REVIEW_QUEUE_POLICY.high_interaction_quantile
+          )
+        ] ?? 0;
   const inconsistentIds = new Set(
     buildConsistencyReview(records, comments).flatMap((item) => item.comment_ids)
   );
@@ -618,29 +637,54 @@ export function buildReviewQueue(
       const interaction =
         Math.log1p(Math.max(0, comment?.like_count ?? 0)) +
         Math.log1p(Math.max(0, comment?.reply_count ?? 0));
-      const reasons = new Set(record.review_reasons);
-      if (record.category_confidence < 0.72) reasons.add("category_low_confidence");
-      if (record.stance_confidence < 0.78) reasons.add("stance_low_confidence");
-      if (record.context_quality === "insufficient") reasons.add("context_insufficient");
-      if (record.sarcasm !== "unlikely") reasons.add("sarcasm_present");
-      if (record.aggression_present && !record.aggression_target) reasons.add("aggression_target_unclear");
-      const highInteraction = interaction >= highInteractionThreshold && interactions.length >= 5;
+      const reasons = new Set<string>();
+      if (
+        record.category_confidence <
+        REVIEW_QUEUE_POLICY.category_confidence_below
+      ) {
+        reasons.add("category_low_confidence");
+      }
+      if (
+        record.stance_confidence <
+        REVIEW_QUEUE_POLICY.stance_confidence_below
+      ) {
+        reasons.add("stance_low_confidence");
+      }
+      if (
+        record.context_quality === "insufficient" &&
+        Math.min(record.category_confidence, record.stance_confidence) <
+          REVIEW_QUEUE_POLICY.context_combined_confidence_below
+      ) {
+        reasons.add("context_insufficient");
+      }
+      if (record.sarcasm === "likely") reasons.add("sarcasm_likely");
+      if (record.aggression_present && !record.aggression_target) {
+        reasons.add("aggression_target_unclear");
+      }
+      const highInteraction =
+        interaction >= highInteractionThreshold && interactions.length >= 10;
       if (
         highInteraction &&
-        (record.category_confidence < 0.8 || record.stance_confidence < 0.82)
+        (record.category_confidence <
+          REVIEW_QUEUE_POLICY.high_interaction_category_below ||
+          record.stance_confidence <
+            REVIEW_QUEUE_POLICY.high_interaction_stance_below)
       ) {
         reasons.add("high_interaction_low_confidence");
       }
       if (inconsistentIds.has(record.comment_id)) {
         reasons.add("similar_comment_inconsistent");
       }
-      if (!record.needs_review && reasons.size === 0) continue;
+      if (reasons.size === 0) continue;
+      if (record.needs_review) reasons.add("ai_requested_review");
+      for (const reason of record.review_reasons) reasons.add(reason);
       const confidenceRisk =
         (1 - record.category_confidence) * 100 + (1 - record.stance_confidence) * 100;
       const priorityScore =
         (highInteraction ? 300 : 0) +
+        (reasons.has("aggression_target_unclear") ? 200 : 0) +
         (record.context_quality === "insufficient" ? 120 : 0) +
-        (record.sarcasm !== "unlikely" ? 80 : 0) +
+        (record.sarcasm === "likely" ? 80 : 0) +
         interaction * 10 +
         confidenceRisk;
       queue.push({
@@ -655,7 +699,16 @@ export function buildReviewQueue(
         review_status: "pending"
       });
   }
-  return queue.sort((left, right) => right.priority_score - left.priority_score);
+  const queueLimit = Math.min(
+    REVIEW_QUEUE_POLICY.max_queue_items,
+    Math.max(
+      REVIEW_QUEUE_POLICY.min_queue_items,
+      Math.ceil(records.length * REVIEW_QUEUE_POLICY.max_queue_ratio)
+    )
+  );
+  return queue
+    .sort((left, right) => right.priority_score - left.priority_score)
+    .slice(0, queueLimit);
 }
 
 export function buildConsistencyReview(
@@ -770,10 +823,12 @@ export async function importClassificationFiles(
       path.join(aiResultsDir, reviewFile),
       JSON.stringify(
         {
-          schema_version: "1.0",
+          schema_version: "2.0",
           generated_at: new Date().toISOString(),
-          status: "pending_manual_review",
+          status:
+            reviewQueue.length === 0 ? "completed" : "pending_manual_review",
           count: reviewQueue.length,
+          policy: REVIEW_QUEUE_POLICY,
           items: reviewQueue
         },
         null,
