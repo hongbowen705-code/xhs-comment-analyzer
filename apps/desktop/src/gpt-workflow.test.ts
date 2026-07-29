@@ -167,6 +167,10 @@ describe("single-file GPT workflow", () => {
     expect(report).toContain("公开IP属地");
     expect(report).toContain("产品或服务效果");
     expect(report).toContain("软件未联网判断真假");
+    expect(report).toContain("conic-gradient");
+    expect(report).toContain("类别 × 态度热力图");
+    expect(report).toContain('class="comment-audit"');
+    expect(report).toContain("评论明细（审计用）");
     expect(await readFile(path.join(taskDir, "ai_results", "analysis_result.json"), "utf8"))
       .toContain("效果争议");
     const shareReport = await readFile(path.join(taskDir, "report_share.html"), "utf8");

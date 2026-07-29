@@ -81,6 +81,159 @@ function percentage(value: unknown): string {
   return `${(Number(value ?? 0) * 100).toFixed(1)}%`;
 }
 
+const CHART_COLORS = [
+  "#a84455",
+  "#d98278",
+  "#d5a44f",
+  "#6f9f8f",
+  "#6689a8",
+  "#8b73a8",
+  "#b77f9b",
+  "#7d858d"
+];
+
+function donutChartHtml(rows: Array<Record<string, unknown>>): string {
+  const visibleRows = rows.filter((row) => Number(row.count ?? 0) > 0);
+  const total = visibleRows.reduce(
+    (sum, row) => sum + Number(row.count ?? 0),
+    0
+  );
+  let cursor = 0;
+  const segments = visibleRows.map((row, index) => {
+    const start = cursor;
+    cursor += Number(row.ratio ?? 0) * 100;
+    return `${CHART_COLORS[index % CHART_COLORS.length]} ${start.toFixed(
+      2
+    )}% ${cursor.toFixed(2)}%`;
+  });
+  return `<div class="donut-layout"><div class="donut" style="background:conic-gradient(${
+    segments.length ? segments.join(",") : "#e9e5e1 0 100%"
+  })"><div><b>${escapeHtml(total)}</b><small>条评论</small></div></div><div class="legend">${visibleRows
+    .map(
+      (row, index) =>
+        `<div><i style="background:${
+          CHART_COLORS[index % CHART_COLORS.length]
+        }"></i><span>${escapeHtml(row.value)}</span><b>${escapeHtml(
+          row.count
+        )}</b><small>${percentage(row.ratio)}</small></div>`
+    )
+    .join("")}</div></div>`;
+}
+
+function horizontalBarsHtml(
+  rows: Array<Record<string, unknown>>,
+  maxItems = 10
+): string {
+  const visibleRows = rows
+    .filter((row) => Number(row.count ?? 0) > 0)
+    .slice(0, maxItems);
+  const maxCount = Math.max(
+    1,
+    ...visibleRows.map((row) => Number(row.count ?? 0))
+  );
+  return `<div class="h-bars">${visibleRows
+    .map(
+      (row, index) =>
+        `<div class="h-row"><div class="h-label"><span>${escapeHtml(
+          row.value
+        )}</span><small>${escapeHtml(row.count)} · ${percentage(
+          row.ratio
+        )}</small></div><div class="h-track"><i style="width:${(
+          (Number(row.count ?? 0) / maxCount) *
+          100
+        ).toFixed(1)}%;background:${
+          CHART_COLORS[index % CHART_COLORS.length]
+        }"></i></div></div>`
+    )
+    .join("")}</div>`;
+}
+
+function timelineChartHtml(rows: Array<Record<string, unknown>>): string {
+  const sorted = [...rows].sort((left, right) => {
+    const leftValue = String(left.value ?? "");
+    const rightValue = String(right.value ?? "");
+    if (leftValue === "时间未知") return 1;
+    if (rightValue === "时间未知") return -1;
+    return leftValue.localeCompare(rightValue);
+  });
+  const maxCount = Math.max(
+    1,
+    ...sorted.map((row) => Number(row.count ?? 0))
+  );
+  return `<div class="timeline-scroll"><div class="timeline">${sorted
+    .map(
+      (row) =>
+        `<div class="time-column"><b>${escapeHtml(
+          row.count
+        )}</b><div><i style="height:${Math.max(
+          5,
+          (Number(row.count ?? 0) / maxCount) * 100
+        ).toFixed(1)}%"></i></div><small>${escapeHtml(row.value)}</small></div>`
+    )
+    .join("")}</div></div>`;
+}
+
+function tagCloudHtml(rows: Array<Record<string, unknown>>): string {
+  const visibleRows = rows
+    .filter((row) => Number(row.count ?? 0) > 0)
+    .slice(0, 24);
+  const maxCount = Math.max(
+    1,
+    ...visibleRows.map((row) => Number(row.count ?? 0))
+  );
+  return `<div class="tag-cloud">${visibleRows
+    .map(
+      (row) =>
+        `<span style="font-size:${(
+          12 +
+          (Number(row.count ?? 0) / maxCount) * 10
+        ).toFixed(1)}px">${escapeHtml(row.value)} <b>${escapeHtml(
+          row.count
+        )}</b></span>`
+    )
+    .join("")}</div>`;
+}
+
+function heatmapHtml(
+  crossRows: Array<Record<string, unknown>>,
+  categoryRows: Array<Record<string, unknown>>,
+  stanceRows: Array<Record<string, unknown>>
+): string {
+  const categories = categoryRows
+    .filter((row) => Number(row.count ?? 0) > 0)
+    .map((row) => String(row.value));
+  const stances = stanceRows
+    .filter((row) => Number(row.count ?? 0) > 0)
+    .map((row) => String(row.value));
+  const counts = new Map(
+    crossRows.map((row) => [
+      `${String(row.primary_category)}\u0000${String(row.stance)}`,
+      Number(row.count ?? 0)
+    ])
+  );
+  const maxCount = Math.max(1, ...counts.values());
+  return `<div class="heatmap-wrap"><table class="heatmap"><thead><tr><th>类别</th>${stances
+    .map((stance) => `<th>${escapeHtml(stance)}</th>`)
+    .join("")}</tr></thead><tbody>${categories
+    .map(
+      (category) =>
+        `<tr><th>${escapeHtml(category)}</th>${stances
+          .map((stance) => {
+            const count = counts.get(`${category}\u0000${stance}`) ?? 0;
+            const opacity = count
+              ? 0.16 + (count / maxCount) * 0.72
+              : 0.04;
+            return `<td style="background:rgba(168,68,85,${opacity.toFixed(
+              2
+            )})" title="${escapeHtml(category)} × ${escapeHtml(
+              stance
+            )}：${count}">${count || "·"}</td>`;
+          })
+          .join("")}</tr>`
+    )
+    .join("")}</tbody></table></div>`;
+}
+
 function evidenceHtml(
   ids: string[],
   comments: Map<string, UnifiedComment>,
@@ -224,82 +377,70 @@ export async function generatePrivateReport(input: {
         )} ${count}</span>`
     )
     .join(" ");
+  const informationValues =
+    (stats.information_values as Array<Record<string, unknown>> | undefined) ??
+    [];
+  const averageInformationValue = informationValues.length
+    ? informationValues.reduce(
+        (sum, item) => sum + Number(item.information_value ?? 0),
+        0
+      ) / informationValues.length
+    : 0;
 
   const html = `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>小红书评论分析报告</title>
 <style>
-:root{font-family:Inter,"Microsoft YaHei",sans-serif;color:#20242b;background:#f6f4f1}
-body{margin:0}.wrap{max-width:1080px;margin:auto;padding:28px}header,.card{background:#fff;border:1px solid #e3ddd7;border-radius:16px;padding:22px;margin-bottom:18px}
-h1{margin:4px 0 8px}h2{font-size:19px}.muted,small{color:#747b86}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid #eee}th{color:#6a7079}
-.bar{height:7px;background:#eee7e2;border-radius:99px;overflow:hidden;min-width:90px}.bar i{display:block;height:100%;background:#a84455}
-.viewpoint{border-left:4px solid #a84455;padding-left:14px;margin:18px 0}.evidence{display:grid;gap:10px}
-.evidence-link{display:block;color:inherit;text-decoration:none;background:#faf8f6;border:1px solid #ebe4de;border-radius:10px;padding:12px}.evidence-link:hover{border-color:#a84455}
-.evidence-link span{float:right;color:#777;font-size:12px}.evidence p{margin:8px 0 0;line-height:1.65}.tag{display:inline-block;padding:4px 8px;background:#f2e8ea;border-radius:999px;font-size:12px}
-.filters{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin:14px 0}.filters input,.filters select{padding:10px;border:1px solid #d9d2cc;border-radius:8px;background:#fff}
-.comment-list{display:grid;gap:10px}.comment-row{scroll-margin-top:12px;border:1px solid #ebe4de;border-radius:10px;padding:14px}.comment-row:target{outline:3px solid #dca9b1}
-.comment-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.comment-meta small{margin-left:auto}.comment-row p{line-height:1.7}.hidden{display:none!important}
-.private-meta{width:100%;font-size:12px;color:#747b86}
-@media(max-width:760px){.grid{grid-template-columns:1fr}.wrap{padding:12px}}
+:root{font-family:Inter,"Microsoft YaHei",sans-serif;color:#252126;background:#f5f1ee;--accent:#a84455;--ink:#252126;--muted:#777078;--line:#e9e0dc}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 8% 0,#f8e9e8 0,transparent 30%),#f5f1ee}.wrap{max-width:1180px;margin:auto;padding:32px}
+.report-hero,.card{background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:20px;padding:24px;margin-bottom:18px;box-shadow:0 10px 30px rgba(64,42,45,.04)}
+.report-hero{padding:32px;background:linear-gradient(135deg,#fff 0,#fff8f7 64%,#f4dedf 100%)}h1{font-size:34px;letter-spacing:-1px;margin:9px 0 14px}h2{font-size:19px;margin-top:0}.muted,small{color:var(--muted)}
+.metric-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}.metric{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}.metric b{display:block;font-size:27px;color:var(--accent);margin-bottom:4px}.metric span{font-size:13px;color:var(--muted)}
+.grid,.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.chart-grid .card{min-height:330px}
+.donut-layout{display:grid;grid-template-columns:190px 1fr;align-items:center;gap:24px}.donut{width:180px;height:180px;border-radius:50%;display:grid;place-items:center}.donut>div{width:112px;height:112px;border-radius:50%;background:#fff;display:grid;place-content:center;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)}.donut b{font-size:28px}.donut small{display:block}.legend{display:grid;gap:8px}.legend>div{display:grid;grid-template-columns:10px 1fr auto auto;gap:8px;align-items:center}.legend i{width:9px;height:9px;border-radius:50%}
+.h-bars{display:grid;gap:13px}.h-label{display:flex;justify-content:space-between;gap:12px;margin-bottom:5px}.h-track{height:9px;background:#eee9e6;border-radius:99px;overflow:hidden}.h-track i{display:block;height:100%;border-radius:99px}
+.timeline-scroll{overflow-x:auto;padding-bottom:6px}.timeline{height:220px;min-width:520px;display:flex;align-items:flex-end;gap:10px;border-bottom:1px solid var(--line);padding:18px 4px 0}.time-column{height:100%;min-width:54px;display:grid;grid-template-rows:20px 1fr 38px;text-align:center;gap:5px}.time-column>div{display:flex;align-items:flex-end;justify-content:center}.time-column i{display:block;width:30px;background:linear-gradient(#d98278,#a84455);border-radius:8px 8px 2px 2px}.time-column small{font-size:11px;word-break:break-all}
+.tag-cloud{display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start}.tag-cloud span{padding:8px 11px;border-radius:12px;background:#f8eeee;color:#6f3943}.tag-cloud b{color:var(--accent)}
+.heatmap-wrap{overflow:auto}.heatmap{width:100%;border-collapse:separate;border-spacing:4px}.heatmap th{font-size:11px;color:var(--muted);font-weight:500;padding:5px}.heatmap td{text-align:center;padding:10px 6px;border-radius:7px;font-weight:700;min-width:54px}
+.viewpoint{border-left:4px solid var(--accent);padding:3px 0 3px 16px;margin:20px 0}.evidence{display:grid;gap:10px}.evidence-link{display:block;color:inherit;text-decoration:none;background:#faf8f6;border:1px solid var(--line);border-radius:12px;padding:13px}.evidence-link:hover{border-color:var(--accent);transform:translateY(-1px)}.evidence-link span{float:right;color:#777;font-size:12px}.evidence p{margin:8px 0 0;line-height:1.65}.tag{display:inline-block;padding:4px 8px;background:#f2e8ea;border-radius:999px;font-size:12px}
+.comment-audit>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}.comment-audit>summary::-webkit-details-marker{display:none}.comment-audit>summary:after{content:"展开";font-size:13px;color:var(--accent);padding:7px 11px;background:#f6eaec;border-radius:99px}.comment-audit[open]>summary:after{content:"收起"}.audit-body{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+.filters{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin:14px 0}.filters input,.filters select{padding:10px;border:1px solid #d9d2cc;border-radius:8px;background:#fff}.comment-list{display:grid;gap:10px}.comment-row{scroll-margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:14px}.comment-row:target{outline:3px solid #dca9b1}.comment-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.comment-meta small{margin-left:auto}.comment-row p{line-height:1.7}.hidden{display:none!important}.private-meta{width:100%;font-size:12px;color:var(--muted)}
+@media(max-width:900px){.metric-grid{grid-template-columns:repeat(3,1fr)}.donut-layout{grid-template-columns:1fr}.donut{margin:auto}}@media(max-width:760px){.grid,.chart-grid{grid-template-columns:1fr}.metric-grid{grid-template-columns:1fr 1fr}.wrap{padding:12px}.filters{grid-template-columns:1fr}}
 </style></head><body><div class="wrap">
-<header><small>任务 ${escapeHtml(input.taskId)} · ${versions.capture_version} / ${versions.analysis_version} / ${versions.report_version} · 本地统计 + GPT语义总结</small><h1>评论分析报告</h1>
+<header class="report-hero"><small>任务 ${escapeHtml(input.taskId)} · ${versions.capture_version} / ${versions.analysis_version} / ${versions.report_version} · 本地统计 + GPT语义总结</small><h1>评论分析报告</h1>
 <p>${escapeHtml(input.analysis.executive_summary)}</p><p class="muted">${escapeHtml(
     input.analysis.sentiment_summary
   )}</p></header>
-<section class="grid">
-<div class="card"><h2>态度分布（本地计算）</h2><table><tr><th>态度</th><th>数量</th><th>比例</th></tr>${stanceRows
-    .map(
-      (row) =>
-        `<tr><td>${escapeHtml(row.value)}</td><td>${escapeHtml(row.count)}</td><td>${percentage(
-          row.ratio
-        )}</td></tr>`
-    )
-    .join("")}</table></div>
-<div class="card"><h2>内容类别（本地计算）</h2><table><tr><th>类别</th><th>数量</th><th>比例</th></tr>${categoryRows
-    .map(
-      (row) =>
-        `<tr><td>${escapeHtml(row.value)}</td><td>${escapeHtml(row.count)}</td><td>${percentage(
-          row.ratio
-        )}</td></tr>`
-    )
-    .join("")}</table></div></section>
-<section class="grid">
-<div class="card"><h2>评论时间分布</h2><p class="muted">仅按可证明的标准化月份聚合；无法确定的时间单列。</p><table><tr><th>月份</th><th>数量</th><th>比例</th></tr>${timeRows
-    .map(
-      (row) =>
-        `<tr><td>${escapeHtml(row.value)}</td><td>${escapeHtml(row.count)}</td><td><div class="bar"><i style="width:${percentage(
-          row.ratio
-        )}"></i></div><small>${percentage(row.ratio)}</small></td></tr>`
-    )
-    .join("")}</table></div>
-<div class="card"><h2>公开 IP 属地聚合</h2><p class="muted">这是页面公开显示的属地，不代表真实居住地；少于 3 条的属地已合并。</p><table><tr><th>属地</th><th>数量</th><th>比例</th></tr>${ipRows
-    .map(
-      (row) =>
-        `<tr><td>${escapeHtml(row.value)}</td><td>${escapeHtml(row.count)}</td><td><div class="bar"><i style="width:${percentage(
-          row.ratio
-        )}"></i></div><small>${percentage(row.ratio)}</small></td></tr>`
-    )
-    .join("")}</table></div></section>
-<section class="grid">
-<div class="card"><h2>动态次要标签</h2><p class="muted">明显同义标签已由本地规则合并；一条评论可有多个标签。</p><table><tr><th>标签</th><th>评论数</th><th>占全部评论</th></tr>${secondaryTagRows
-    .slice(0, 20)
-    .map(
-      (row) =>
-        `<tr><td>${escapeHtml(row.value)}</td><td>${escapeHtml(row.count)}</td><td>${percentage(
-          row.ratio
-        )}</td></tr>`
-    )
-    .join("")}</table></div>
-<div class="card"><h2>类别 × 态度交叉表</h2><table><tr><th>类别</th><th>态度</th><th>数量</th></tr>${crossRows
-    .slice(0, 30)
-    .map(
-      (row) =>
-        `<tr><td>${escapeHtml(row.primary_category)}</td><td>${escapeHtml(
-          row.stance
-        )}</td><td>${escapeHtml(row.count)}</td></tr>`
-    )
-    .join("")}</table></div></section>
+<section class="metric-grid"><article class="metric"><b>${escapeHtml(
+    stats.classified_comment_count ?? comments.length
+  )}</b><span>已分析评论</span></article><article class="metric"><b>${escapeHtml(
+    stats.root_comment_count ?? 0
+  )}</b><span>一级评论</span></article><article class="metric"><b>${escapeHtml(
+    stats.reply_comment_count ?? 0
+  )}</b><span>楼中楼回复</span></article><article class="metric"><b>${escapeHtml(
+    averageInformationValue.toFixed(1)
+  )}</b><span>平均信息价值 / 100</span></article><article class="metric"><b>${escapeHtml(
+    manualRevisionCount
+  )}</b><span>人工修订</span></article></section>
+<section class="chart-grid"><div class="card"><h2>态度构成</h2><p class="muted">比例由本地程序计算。</p>${donutChartHtml(
+    stanceRows
+  )}</div><div class="card"><h2>内容类别</h2><p class="muted">条形长度表示相对数量。</p>${horizontalBarsHtml(
+    categoryRows,
+    12
+  )}</div></section>
+<section class="chart-grid"><div class="card"><h2>评论时间趋势</h2><p class="muted">按可证明的标准化月份聚合；未知时间单列。</p>${timelineChartHtml(
+    timeRows
+  )}</div><div class="card"><h2>公开 IP 属地分布</h2><p class="muted">公开属地不代表真实居住地；少于 3 条的属地已合并。</p>${horizontalBarsHtml(
+    ipRows,
+    12
+  )}</div></section>
+<section class="chart-grid"><div class="card"><h2>动态主题标签</h2><p class="muted">字号反映出现次数；明显同义标签已由本地规则合并。</p>${tagCloudHtml(
+    secondaryTagRows
+  )}</div><div class="card"><h2>类别 × 态度热力图</h2><p class="muted">颜色越深，组合出现次数越多。</p>${heatmapHtml(
+    crossRows,
+    categoryRows,
+    stanceRows
+  )}</div></section>
 <section class="card"><h2>主要观点</h2>${input.analysis.main_viewpoints
     .map(
       (item) => {
@@ -361,7 +502,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
         )}</div>`
     )
     .join("")}</section>
-<section class="card" id="all-comments"><h2>全部评论与分类</h2>
+<section class="card" id="all-comments"><details class="comment-audit"><summary><div><h2>评论明细（审计用）</h2><p class="muted">完整评论保留用于搜索、筛选和证据追溯，默认折叠，不占用报告主体。</p></div></summary><div class="audit-body">
 <div class="filters"><input id="comment-search" placeholder="搜索评论内容或评论ID">
 <select id="stance-filter"><option value="">全部态度</option>${stanceRows
     .map((row) => `<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`)
@@ -370,13 +511,14 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
     .map((row) => `<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`)
     .join("")}</select></div>
 <p class="muted" id="filter-count">显示 ${comments.length} 条</p>
-<div class="comment-list">${commentRowsHtml(comments, classificationMap)}</div></section>
+<div class="comment-list">${commentRowsHtml(comments, classificationMap)}</div></div></details></section>
 <section class="card" id="limitations"><h2>分析局限</h2><ul>${input.analysis.limitations
     .map((item) => `<li>${escapeHtml(item)}</li>`)
     .join("")}</ul><p class="muted">高频说法不等于事实。综合指标不代表真实性、正确性或总体代表性。</p></section>
 </div><script>
-(()=>{const q=document.querySelector('#comment-search'),s=document.querySelector('#stance-filter'),c=document.querySelector('#category-filter'),rows=[...document.querySelectorAll('.comment-row')],count=document.querySelector('#filter-count');
-if(!q||!s||!c||!count)return;const apply=()=>{const term=(q.value||'').trim().toLowerCase();let visible=0;for(const row of rows){const okText=!term||row.textContent.toLowerCase().includes(term),okStance=!s.value||row.dataset.stance===s.value,okCategory=!c.value||row.dataset.category===c.value,show=okText&&okStance&&okCategory;row.classList.toggle('hidden',!show);if(show)visible++}count.textContent='显示 '+visible+' 条'};q.addEventListener('input',apply);s.addEventListener('change',apply);c.addEventListener('change',apply)})();
+(()=>{const q=document.querySelector('#comment-search'),s=document.querySelector('#stance-filter'),c=document.querySelector('#category-filter'),rows=[...document.querySelectorAll('.comment-row')],count=document.querySelector('#filter-count'),audit=document.querySelector('.comment-audit');
+if(q&&s&&c&&count){const apply=()=>{const term=(q.value||'').trim().toLowerCase();let visible=0;for(const row of rows){const okText=!term||row.textContent.toLowerCase().includes(term),okStance=!s.value||row.dataset.stance===s.value,okCategory=!c.value||row.dataset.category===c.value,show=okText&&okStance&&okCategory;row.classList.toggle('hidden',!show);if(show)visible++}count.textContent='显示 '+visible+' 条'};q.addEventListener('input',apply);s.addEventListener('change',apply);c.addEventListener('change',apply)}
+for(const link of document.querySelectorAll('.evidence-link'))link.addEventListener('click',()=>{if(audit)audit.open=true})})();
 </script></body></html>`;
 
   const reportPath = path.join(reportDir, "index.html");
