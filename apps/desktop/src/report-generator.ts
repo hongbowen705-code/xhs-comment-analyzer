@@ -234,6 +234,14 @@ function heatmapHtml(
     .join("")}</tbody></table></div>`;
 }
 
+function collapseControlsHtml(group: string): string {
+  return `<div class="collapse-actions"><button type="button" data-collapse-group="${escapeHtml(
+    group
+  )}" data-collapse-action="open">全部展开</button><button type="button" data-collapse-group="${escapeHtml(
+    group
+  )}" data-collapse-action="close">全部收起</button></div>`;
+}
+
 function evidenceHtml(
   ids: string[],
   comments: Map<string, UnifiedComment>,
@@ -402,10 +410,11 @@ export async function generatePrivateReport(input: {
 .timeline-scroll{overflow-x:auto;padding-bottom:6px}.timeline{height:220px;min-width:520px;display:flex;align-items:flex-end;gap:10px;border-bottom:1px solid var(--line);padding:18px 4px 0}.time-column{height:100%;min-width:54px;display:grid;grid-template-rows:20px 1fr 38px;text-align:center;gap:5px}.time-column>div{display:flex;align-items:flex-end;justify-content:center}.time-column i{display:block;width:30px;background:linear-gradient(#d98278,#a84455);border-radius:8px 8px 2px 2px}.time-column small{font-size:11px;word-break:break-all}
 .tag-cloud{display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start}.tag-cloud span{padding:8px 11px;border-radius:12px;background:#f8eeee;color:#6f3943}.tag-cloud b{color:var(--accent)}
 .heatmap-wrap{overflow:auto}.heatmap{width:100%;border-collapse:separate;border-spacing:4px}.heatmap th{font-size:11px;color:var(--muted);font-weight:500;padding:5px}.heatmap td{text-align:center;padding:10px 6px;border-radius:7px;font-weight:700;min-width:54px}
-.viewpoint{border-left:4px solid var(--accent);padding:3px 0 3px 16px;margin:20px 0}.evidence{display:grid;gap:10px}.evidence-link{display:block;color:inherit;text-decoration:none;background:#faf8f6;border:1px solid var(--line);border-radius:12px;padding:13px}.evidence-link:hover{border-color:var(--accent);transform:translateY(-1px)}.evidence-link span{float:right;color:#777;font-size:12px}.evidence p{margin:8px 0 0;line-height:1.65}.tag{display:inline-block;padding:4px 8px;background:#f2e8ea;border-radius:999px;font-size:12px}
+.section-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:12px}.section-heading h2{margin:0}.collapse-actions{display:flex;gap:6px}.collapse-actions button{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:9px;padding:6px 9px;cursor:pointer}.collapse-actions button:hover{color:var(--accent);border-color:#d9b9bf}
+.insight-list{display:grid;gap:10px}.insight-item{border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden}.insight-item>summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:1fr auto;align-items:center;gap:14px;padding:16px 18px}.insight-item>summary::-webkit-details-marker{display:none}.insight-item>summary:after{content:"展开";font-size:12px;color:var(--accent);grid-column:2}.insight-item[open]>summary:after{content:"收起"}.insight-item>summary h3{display:inline;margin:0 8px;font-size:16px}.summary-meta{color:var(--muted);font-size:12px;text-align:right}.insight-body{border-top:1px solid var(--line);padding:4px 18px 18px}.insight-body>p{line-height:1.7}.viewpoint{border-left:4px solid var(--accent);padding-left:14px}.evidence{display:grid;gap:10px}.evidence-link{display:block;color:inherit;text-decoration:none;background:#faf8f6;border:1px solid var(--line);border-radius:12px;padding:13px}.evidence-link:hover{border-color:var(--accent);transform:translateY(-1px)}.evidence-link span{float:right;color:#777;font-size:12px}.evidence p{margin:8px 0 0;line-height:1.65}.tag{display:inline-block;padding:4px 8px;background:#f2e8ea;border-radius:999px;font-size:12px}
 .comment-audit>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}.comment-audit>summary::-webkit-details-marker{display:none}.comment-audit>summary:after{content:"展开";font-size:13px;color:var(--accent);padding:7px 11px;background:#f6eaec;border-radius:99px}.comment-audit[open]>summary:after{content:"收起"}.audit-body{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
 .filters{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin:14px 0}.filters input,.filters select{padding:10px;border:1px solid #d9d2cc;border-radius:8px;background:#fff}.comment-list{display:grid;gap:10px}.comment-row{scroll-margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:14px}.comment-row:target{outline:3px solid #dca9b1}.comment-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.comment-meta small{margin-left:auto}.comment-row p{line-height:1.7}.hidden{display:none!important}.private-meta{width:100%;font-size:12px;color:var(--muted)}
-@media(max-width:900px){.metric-grid{grid-template-columns:repeat(3,1fr)}.donut-layout{grid-template-columns:1fr}.donut{margin:auto}}@media(max-width:760px){.grid,.chart-grid{grid-template-columns:1fr}.metric-grid{grid-template-columns:1fr 1fr}.wrap{padding:12px}.filters{grid-template-columns:1fr}}
+@media(max-width:900px){.metric-grid{grid-template-columns:repeat(3,1fr)}.donut-layout{grid-template-columns:1fr}.donut{margin:auto}}@media(max-width:760px){.grid,.chart-grid{grid-template-columns:1fr}.metric-grid{grid-template-columns:1fr 1fr}.wrap{padding:12px}.filters{grid-template-columns:1fr}.section-heading{align-items:flex-start;flex-direction:column}.insight-item>summary{grid-template-columns:1fr}.summary-meta{text-align:left}.insight-item>summary:after{grid-column:1}}
 </style></head><body><div class="wrap">
 <header class="report-hero"><small>任务 ${escapeHtml(input.taskId)} · ${versions.capture_version} / ${versions.analysis_version} / ${versions.report_version} · 本地统计 + GPT语义总结</small><h1>评论分析报告</h1>
 <p>${escapeHtml(input.analysis.executive_summary)}</p><p class="muted">${escapeHtml(
@@ -441,13 +450,23 @@ export async function generatePrivateReport(input: {
     categoryRows,
     stanceRows
   )}</div></section>
-<section class="card"><h2>主要观点</h2>${input.analysis.main_viewpoints
+<section class="card"><div class="section-heading"><h2>主要观点</h2>${collapseControlsHtml(
+    "viewpoints"
+  )}</div><div class="insight-list">${input.analysis.main_viewpoints
     .map(
       (item) => {
         const enriched = enrichedViewpointMap.get(item.viewpoint_id);
-        return `<div class="viewpoint"><span class="tag">${escapeHtml(item.viewpoint_id)}</span><h3>${escapeHtml(
+        return `<details class="insight-item" data-insight-group="viewpoints"><summary><div><span class="tag">${escapeHtml(
+          item.viewpoint_id
+        )}</span><h3>${escapeHtml(
           item.title
-        )}</h3><p>${escapeHtml(item.summary)}</p><p class="muted">${escapeHtml(
+        )}</h3></div><span class="summary-meta">成员 ${escapeHtml(
+          enriched?.member_comment_ids.length ?? item.member_comment_ids.length
+        )} · 证据 ${escapeHtml(
+          item.representative_comment_ids.length
+        )}</span></summary><div class="insight-body viewpoint"><p>${escapeHtml(
+          item.summary
+        )}</p><p class="muted">${escapeHtml(
           enriched?.viewpoint_type ?? "未标注观点类型"
         )} · 置信度 ${enriched?.confidence === null || enriched?.confidence === undefined
           ? "未提供"
@@ -456,52 +475,80 @@ export async function generatePrivateReport(input: {
         )} 条 · 一级 ${escapeHtml(enriched?.root_comment_count ?? 0)} · 楼中楼 ${escapeHtml(
           enriched?.reply_comment_count ?? 0
         )} · 关联争议 ${escapeHtml(enriched?.controversy_ids.join("、") || "无")}</p>${evidenceHtml(
-          item.representative_comment_ids,
-          commentMap,
-          classificationMap
-        )}</div>`;
+           item.representative_comment_ids,
+           commentMap,
+           classificationMap
+        )}</div></details>`;
       }
     )
-    .join("")}</section>
-<section class="card"><h2>争议点</h2>${input.analysis.controversies
+    .join("")}</div></section>
+<section class="card"><div class="section-heading"><h2>争议点</h2>${collapseControlsHtml(
+    "controversies"
+  )}</div><div class="insight-list">${input.analysis.controversies
     .map(
       (item) =>
-        `<div class="viewpoint"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(
+        `<details class="insight-item" data-insight-group="controversies"><summary><div><h3>${escapeHtml(
+          item.title
+        )}</h3></div><span class="summary-meta">证据 ${escapeHtml(
+          item.evidence_comment_ids.length
+        )}</span></summary><div class="insight-body viewpoint"><p>${escapeHtml(
           item.summary
-        )}</p>${evidenceHtml(item.evidence_comment_ids, commentMap, classificationMap)}</div>`
-    )
-    .join("")}</section>
-<section class="grid"><div class="card"><h2>评论区共识</h2>${input.analysis.consensus_statements
-    .map(
-      (item) =>
-        `<div class="viewpoint"><p>${escapeHtml(item.statement)}</p>${evidenceHtml(
+        )}</p>${evidenceHtml(
           item.evidence_comment_ids,
           commentMap,
           classificationMap
-        )}</div>`
-    )
-    .join("")}</div><div class="card"><h2>待外部核验声明</h2><p class="muted">仅识别声明类型，全部状态均为“未核验”；软件未联网判断真假。</p><p>${claimTypeSummary || '<span class="muted">无待核验声明</span>'}</p>${normalizedClaims
-    .map(
-      (item) =>
-        `<div class="viewpoint"><span class="tag">${escapeHtml(
-          CLAIM_TYPE_LABELS[item.claim_type]
-        )}</span> <span class="tag">未核验</span><p>${escapeHtml(item.claim)}</p>${evidenceHtml(
-          item.evidence_comment_ids,
-          commentMap,
-          classificationMap
-        )}</div>`
+        )}</div></details>`
     )
     .join("")}</div></section>
-<section class="card"><h2>高价值评论</h2>${input.analysis.high_value_comments
+<section class="grid"><div class="card"><div class="section-heading"><h2>评论区共识</h2>${collapseControlsHtml(
+    "consensus"
+  )}</div><div class="insight-list">${input.analysis.consensus_statements
     .map(
       (item) =>
-        `<div class="viewpoint"><p>${escapeHtml(item.reason)}</p>${evidenceHtml(
+        `<details class="insight-item" data-insight-group="consensus"><summary><div><h3>${escapeHtml(
+          item.statement
+        )}</h3></div><span class="summary-meta">证据 ${escapeHtml(
+          item.evidence_comment_ids.length
+        )}</span></summary><div class="insight-body">${evidenceHtml(
+          item.evidence_comment_ids,
+          commentMap,
+          classificationMap
+        )}</div></details>`
+    )
+    .join("")}</div></div><div class="card"><div class="section-heading"><h2>待外部核验声明</h2>${collapseControlsHtml(
+    "claims"
+  )}</div><p class="muted">仅识别声明类型，全部状态均为“未核验”；软件未联网判断真假。</p><p>${claimTypeSummary || '<span class="muted">无待核验声明</span>'}</p><div class="insight-list">${normalizedClaims
+    .map(
+      (item) =>
+        `<details class="insight-item" data-insight-group="claims"><summary><div><span class="tag">${escapeHtml(
+          CLAIM_TYPE_LABELS[item.claim_type]
+        )}</span> <span class="tag">未核验</span><h3>${escapeHtml(
+          item.claim
+        )}</h3></div><span class="summary-meta">证据 ${escapeHtml(
+          item.evidence_comment_ids.length
+        )}</span></summary><div class="insight-body">${evidenceHtml(
+          item.evidence_comment_ids,
+          commentMap,
+          classificationMap
+        )}</div></details>`
+    )
+    .join("")}</div></div></section>
+<section class="card"><div class="section-heading"><h2>高价值评论</h2>${collapseControlsHtml(
+    "high-value"
+  )}</div><div class="insight-list">${input.analysis.high_value_comments
+    .map(
+      (item) =>
+        `<details class="insight-item" data-insight-group="high-value"><summary><div><span class="tag">${escapeHtml(
+          item.comment_id
+        )}</span><h3>${escapeHtml(
+          item.reason
+        )}</h3></div></summary><div class="insight-body">${evidenceHtml(
           [item.comment_id],
           commentMap,
           classificationMap
-        )}</div>`
+        )}</div></details>`
     )
-    .join("")}</section>
+    .join("")}</div></section>
 <section class="card" id="all-comments"><details class="comment-audit"><summary><div><h2>评论明细（审计用）</h2><p class="muted">完整评论保留用于搜索、筛选和证据追溯，默认折叠，不占用报告主体。</p></div></summary><div class="audit-body">
 <div class="filters"><input id="comment-search" placeholder="搜索评论内容或评论ID">
 <select id="stance-filter"><option value="">全部态度</option>${stanceRows
@@ -518,6 +565,7 @@ export async function generatePrivateReport(input: {
 </div><script>
 (()=>{const q=document.querySelector('#comment-search'),s=document.querySelector('#stance-filter'),c=document.querySelector('#category-filter'),rows=[...document.querySelectorAll('.comment-row')],count=document.querySelector('#filter-count'),audit=document.querySelector('.comment-audit');
 if(q&&s&&c&&count){const apply=()=>{const term=(q.value||'').trim().toLowerCase();let visible=0;for(const row of rows){const okText=!term||row.textContent.toLowerCase().includes(term),okStance=!s.value||row.dataset.stance===s.value,okCategory=!c.value||row.dataset.category===c.value,show=okText&&okStance&&okCategory;row.classList.toggle('hidden',!show);if(show)visible++}count.textContent='显示 '+visible+' 条'};q.addEventListener('input',apply);s.addEventListener('change',apply);c.addEventListener('change',apply)}
+for(const button of document.querySelectorAll('[data-collapse-action]'))button.addEventListener('click',()=>{const group=button.dataset.collapseGroup,open=button.dataset.collapseAction==='open';for(const item of document.querySelectorAll('[data-insight-group="'+group+'"]'))item.open=open});
 for(const link of document.querySelectorAll('.evidence-link'))link.addEventListener('click',()=>{if(audit)audit.open=true})})();
 </script></body></html>`;
 

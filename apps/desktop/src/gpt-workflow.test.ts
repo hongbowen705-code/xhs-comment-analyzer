@@ -171,6 +171,9 @@ describe("single-file GPT workflow", () => {
     expect(report).toContain("类别 × 态度热力图");
     expect(report).toContain('class="comment-audit"');
     expect(report).toContain("评论明细（审计用）");
+    expect(report).toContain('data-insight-group="viewpoints"');
+    expect(report).toContain('data-collapse-action="open"');
+    expect(report).toContain("全部收起");
     expect(await readFile(path.join(taskDir, "ai_results", "analysis_result.json"), "utf8"))
       .toContain("效果争议");
     const shareReport = await readFile(path.join(taskDir, "report_share.html"), "utf8");
